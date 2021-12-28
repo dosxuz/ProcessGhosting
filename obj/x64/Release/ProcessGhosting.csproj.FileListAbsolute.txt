@@ -1,0 +1,7 @@
+C:\Users\ritab\Tools\Process_Ghosting\ProcessGhosting\obj\x64\Release\ProcessGhosting.csproj.AssemblyReference.cache
+C:\Users\ritab\Tools\Process_Ghosting\ProcessGhosting\obj\x64\Release\ProcessGhosting.csproj.CoreCompileInputs.cache
+C:\Users\ritab\Tools\Process_Ghosting\ProcessGhosting\bin\x64\Release\ProcessGhosting.exe.config
+C:\Users\ritab\Tools\Process_Ghosting\ProcessGhosting\bin\x64\Release\ProcessGhosting.exe
+C:\Users\ritab\Tools\Process_Ghosting\ProcessGhosting\bin\x64\Release\ProcessGhosting.pdb
+C:\Users\ritab\Tools\Process_Ghosting\ProcessGhosting\obj\x64\Release\ProcessGhosting.exe
+C:\Users\ritab\Tools\Process_Ghosting\ProcessGhosting\obj\x64\Release\ProcessGhosting.pdb
