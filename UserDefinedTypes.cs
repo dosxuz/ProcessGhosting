@@ -530,5 +530,8 @@ namespace ProcessGhosting
             public UNICODE_STRING ImagePathName;
             public UNICODE_STRING CommandLine;
         }
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        public static extern bool ReadProcessMemory(IntPtr hProcess, IntPtr lpBaseAddress, IntPtr lpBuffer, uint dwSize, ref uint lpNumberOfBytesRead);
     }
 }
